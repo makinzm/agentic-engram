@@ -1,3 +1,5 @@
+[日本語](./README.ja.md)
+
 # Agentic Engram
 
 **Autonomous local memory ecosystem for AI coding agents -- inspired by how human memory works.**
