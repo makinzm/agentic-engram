@@ -7,5 +7,6 @@ build/
 .venv/
 .env
 .pytest_cache/
+.claude/
 *.db
 *.lance/
