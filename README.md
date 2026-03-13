@@ -143,6 +143,139 @@ Streamlit web dashboard for memory management.
 streamlit run scripts/ae-console.py
 ```
 
+## Integration with AI Agents
+
+### Agent 1 (Development Agent) -- Autonomous Recall
+
+#### Registering ae-recall as a Skill in CLAUDE.md
+
+Add the following to your project's `CLAUDE.md` (or `~/.claude/CLAUDE.md` for global access):
+
+```markdown
+# Skills
+
+## Memory Recall
+When you encounter an unfamiliar error, unexpected behavior, or need to check
+if a similar problem was solved before, run:
+  python /path/to/agentic-engram/scripts/ae-recall.py --query "<describe the issue>" --format markdown --limit 3
+Review the results before attempting a fix from scratch.
+```
+
+The agent will then autonomously invoke `ae-recall` when it hits unknown errors, retrieving past lessons before trying to solve problems from scratch.
+
+#### Auto-recording development sessions
+
+Add a shell alias so every `claude` session is transparently recorded:
+
+```bash
+# ~/.bashrc or ~/.zshrc
+alias dev='script -q -a ~/.engram/short-term-memory/session_$(date +%Y%m%d_%H%M%S)_log.txt -c "claude"'
+```
+
+Then simply run `dev` instead of `claude`. All terminal I/O is streamed into `short-term-memory/` with zero overhead.
+
+### Agent 2 (Miner) -- Connecting an LLM
+
+`ae-miner` delegates knowledge extraction to an LLM via the `llm_fn` callback passed to `process_log()`. The default CLI script uses a placeholder that raises `NotImplementedError`. Replace it with a real provider:
+
+#### Passing llm_fn via Python
+
+```python
+from engram.cursor import CursorManager
+from engram.miner import scan_logs, process_log
+
+import os
+
+cm = CursorManager(os.path.expanduser("~/.engram/config/cursor.json"))
+
+# -- OpenAI example --
+from openai import OpenAI
+client = OpenAI()  # uses OPENAI_API_KEY env var
+
+def llm_fn(messages: list[dict]) -> str:
+    resp = client.chat.completions.create(
+        model="gpt-4o",
+        messages=messages,
+        temperature=0.2,
+    )
+    return resp.choices[0].message.content
+
+# -- Anthropic alternative (swap in place of the above) --
+# from anthropic import Anthropic
+# client = Anthropic()
+# def llm_fn(messages):
+#     # messages[0] is always the system role
+#     resp = client.messages.create(model="claude-sonnet-4-20250514", max_tokens=4096,
+#                                    system=messages[0]["content"],
+#                                    messages=messages[1:])
+#     return resp.content[0].text
+
+for target in scan_logs(os.path.expanduser("~/.engram/short-term-memory"), cm):
+    process_log(target["filepath"], cm, llm_fn, db_path=os.path.expanduser("~/.engram/memory-db/vector_store"))
+```
+
+#### Customizing ae-miner.py
+
+The simplest approach is to edit `scripts/ae-miner.py` directly. Replace the `_llm_placeholder` function (around line 69) with the `llm_fn` implementation shown above. No other changes are needed -- the rest of the script (scanning, archiving, cursor management) works as-is.
+
+## Automated Scheduling
+
+### cron (Linux / macOS)
+
+Run `ae-miner` every 30 minutes:
+
+```bash
+crontab -e
+```
+
+```cron
+*/30 * * * * cd /path/to/agentic-engram && /path/to/python scripts/ae-miner.py >> ~/.engram/miner.log 2>&1
+```
+
+### launchd (macOS native)
+
+Create `~/Library/LaunchAgents/com.engram.miner.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.engram.miner</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/path/to/python</string>
+    <string>/path/to/agentic-engram/scripts/ae-miner.py</string>
+  </array>
+  <key>StartInterval</key>
+  <integer>1800</integer>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>OPENAI_API_KEY</key>
+    <string>YOUR_API_KEY_HERE</string>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/Users/YOU/.engram/miner.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/YOU/.engram/miner.log</string>
+</dict>
+</plist>
+```
+
+> **Security:** The plist contains a plain-text API key. Restrict permissions with `chmod 600 ~/Library/LaunchAgents/com.engram.miner.plist`. For stronger protection, consider storing the key in macOS Keychain and retrieving it at runtime instead of hardcoding it here.
+
+Load it:
+
+```bash
+launchctl load ~/Library/LaunchAgents/com.engram.miner.plist
+```
+
+### systemd timer (Linux)
+
+For Linux servers, create a systemd service + timer pair under `~/.config/systemd/user/`. The structure mirrors the launchd approach -- a service unit that runs `ae-miner.py` and a timer unit with `OnUnitActiveSec=30min`. Enable with `systemctl --user enable --now engram-miner.timer`.
+
 ## Development
 
 ```bash
