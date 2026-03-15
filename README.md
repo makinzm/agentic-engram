@@ -272,7 +272,8 @@ pytest -v
 
 ## Roadmap
 
-- **V2: Graph DB extension** -- Integrate [Kuzu](https://kuzudb.com/) to materialize `entities_json` / `relations_json` into a property graph, enabling GraphRAG-style hybrid retrieval (vector similarity + logical traversal).
+- ~~**V2: Graph DB extension**~~ -- **Done.** [Kuzu](https://kuzudb.com/) integration for GraphRAG-style hybrid retrieval (vector similarity + graph traversal).
+- **V3: Memory consolidation** -- Automatic deduplication and merging of similar memories over time.
 
 ## License
 
