@@ -10,6 +10,12 @@ import subprocess
 import sys
 
 LLM_CHOICES = ["claude-code", "codex", "gemini"]
+SOURCE_CHOICES = ["text", "claude-code"]
+
+_DEFAULT_LOG_DIRS = {
+    "text": "~/.engram/short-term-memory",
+    "claude-code": "~/.claude/projects",
+}
 
 
 def _extract_json_array(text: str) -> str:
@@ -77,9 +83,15 @@ def _make_cli_llm(cli_name: str):
 def main():
     parser = argparse.ArgumentParser(description="Mine memories from session logs")
     parser.add_argument(
+        "--source",
+        choices=SOURCE_CHOICES,
+        default="claude-code",
+        help="Log source type (default: claude-code)",
+    )
+    parser.add_argument(
         "--log-dir",
-        default=os.path.expanduser("~/.engram/short-term-memory"),
-        help="Directory containing session log files",
+        default=None,
+        help="Directory containing session log files (default depends on --source)",
     )
     parser.add_argument(
         "--db-path",
@@ -115,7 +127,9 @@ def main():
     )
     args = parser.parse_args()
 
-    archive_dir = args.archive_dir or os.path.join(args.log_dir, "archive")
+    # --log-dir のデフォルトは --source に依存
+    log_dir = args.log_dir or os.path.expanduser(_DEFAULT_LOG_DIRS[args.source])
+    archive_dir = args.archive_dir or os.path.join(log_dir, "archive")
 
     try:
         from engram.cursor import CursorManager
@@ -123,8 +137,14 @@ def main():
 
         cm = CursorManager(args.cursor_path)
 
-        # 1. スキャン
-        targets = scan_logs(args.log_dir, cm)
+        # 1. スキャン（source に応じて分岐）
+        session_parser = None
+        if args.source == "claude-code":
+            from engram.parsers.claude_code import ClaudeCodeParser
+            session_parser = ClaudeCodeParser(base_dir=log_dir)
+            targets = session_parser.scan(cm)
+        else:
+            targets = scan_logs(log_dir, cm)
 
         if not targets:
             print("No log files to process.")
@@ -152,6 +172,7 @@ def main():
                             cm,
                             llm_fn,
                             db_path=args.db_path,
+                            parser=session_parser,
                         )
                     except subprocess.TimeoutExpired:
                         print(
@@ -161,8 +182,9 @@ def main():
                     except RuntimeError as e:
                         print(f"    Error: {e}", file=sys.stderr)
 
-        # 2. アーカイブ
-        archive_stale_logs(args.log_dir, archive_dir, cm, ttl_days=args.ttl_days)
+        # 2. アーカイブ（text source のみ。claude-code は Claude Code が管理）
+        if args.source == "text":
+            archive_stale_logs(log_dir, archive_dir, cm, ttl_days=args.ttl_days)
 
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
