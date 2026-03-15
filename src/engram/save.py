@@ -5,7 +5,10 @@ from __future__ import annotations
 import datetime
 import hashlib
 import json
-from typing import Dict, List, Any
+import logging
+from typing import Dict, List, Any, Optional
+
+logger = logging.getLogger(__name__)
 
 from engram.db import insert_records, delete_records, record_exists, _ensure_table
 from engram.embedder import embed_text
@@ -52,7 +55,35 @@ def _validate_item(item: Dict[str, Any]) -> None:
         )
 
 
-def save_memories(payload: List[Dict[str, Any]], db_path: str) -> Dict[str, int]:
+def _try_sync_to_graph(
+    memory_id: str,
+    payload: Dict[str, Any],
+    entities: List[str],
+    relations: List[Dict],
+    graph_path: str,
+) -> None:
+    """Best-effort sync to graph DB. Logs warning on failure."""
+    try:
+        from engram.graph import sync_to_graph
+
+        sync_to_graph(
+            memory_id=memory_id,
+            event=payload["event"],
+            category=payload["category"],
+            timestamp=datetime.datetime.now(),
+            entities=entities,
+            relations=relations,
+            graph_path=graph_path,
+        )
+    except Exception as e:
+        logger.warning("Graph sync failed for %s: %s", memory_id, e)
+
+
+def save_memories(
+    payload: List[Dict[str, Any]],
+    db_path: str,
+    graph_path: Optional[str] = None,
+) -> Dict[str, int]:
     """Save memories to LanceDB.
 
     Returns {"inserted": N, "updated": N, "skipped": N}.
@@ -100,6 +131,8 @@ def save_memories(payload: List[Dict[str, Any]], db_path: str) -> Dict[str, int]
                 "relations_json": json.dumps(relations, ensure_ascii=False),
             }
             insert_records([record], db_path)
+            if graph_path is not None:
+                _try_sync_to_graph(memory_id, p, entities, relations, graph_path)
             result["inserted"] += 1
 
         elif action == "UPDATE":
@@ -134,6 +167,8 @@ def save_memories(payload: List[Dict[str, Any]], db_path: str) -> Dict[str, int]
                 "relations_json": json.dumps(relations, ensure_ascii=False),
             }
             insert_records([record], db_path)
+            if graph_path is not None:
+                _try_sync_to_graph(target_id, p, entities, relations, graph_path)
             result["updated"] += 1
 
     return result
