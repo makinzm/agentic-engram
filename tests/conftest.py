@@ -76,6 +76,18 @@ def mock_llm_skip():
 
 
 @pytest.fixture
+def tmp_graph_path(tmp_path):
+    path = str(tmp_path / "test_graph_store")
+    yield path
+    # Close the Kuzu DB to free mmap resources
+    try:
+        from engram.graph import close_graph_db
+        close_graph_db(path)
+    except Exception:
+        pass
+
+
+@pytest.fixture
 def mock_llm_update_factory():
     """target_idを受け取ってUPDATEモックを返すファクトリ"""
     def _factory(target_id):
