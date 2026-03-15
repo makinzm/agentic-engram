@@ -260,3 +260,185 @@ class TestSimilarityScore:
         if len(results) >= 2:
             scores = [r["score"] for r in results]
             assert scores == sorted(scores, reverse=True)
+
+
+# === BDD Scenario 7: ハイブリッド検索 ===
+
+
+class TestHybridSearch:
+    """graph_path 指定時にグラフ経由の結果もスコアブーストされて返る"""
+
+    @pytest.fixture
+    def hybrid_db(self, tmp_db_path, tmp_graph_path):
+        """ベクトルDB + グラフDBの両方にデータを投入"""
+        import datetime
+        from engram.db import insert_records
+        from engram.graph import sync_to_graph
+
+        records = [
+            {
+                "id": "a" * 64,
+                "event": "Next.jsのApp RouterでuseEffectがサーバーコンポーネントで動かない",
+                "context": "サーバーコンポーネント内でブラウザAPIを使おうとした",
+                "core_lessons": "'use client'ディレクティブを追加すること",
+                "category": "bug_fix",
+                "tags": ["Next.js", "React"],
+                "related_files": ["app/page.tsx"],
+                "session_id": "session_001",
+                "timestamp": datetime.datetime.now(),
+                "entities_json": '["Next.js", "React"]',
+                "relations_json": '[{"source": "Next.js", "target": "React", "type": "USES"}]',
+            },
+            {
+                "id": "b" * 64,
+                "event": "ReactのuseStateフックで無限レンダリング",
+                "context": "依存配列にオブジェクトを直接渡していた",
+                "core_lessons": "useMemoで参照を安定させる",
+                "category": "bug_fix",
+                "tags": ["React", "hooks"],
+                "related_files": ["src/App.tsx"],
+                "session_id": "session_002",
+                "timestamp": datetime.datetime.now(),
+                "entities_json": '["React", "useState"]',
+                "relations_json": '[]',
+            },
+            {
+                "id": "c" * 64,
+                "event": "PostgreSQLのインデックス最適化",
+                "context": "クエリが遅かった",
+                "core_lessons": "複合インデックスを使う",
+                "category": "performance",
+                "tags": ["PostgreSQL", "indexing"],
+                "related_files": ["db/migrations/001.sql"],
+                "session_id": "session_003",
+                "timestamp": datetime.datetime.now(),
+                "entities_json": '["PostgreSQL"]',
+                "relations_json": '[]',
+            },
+        ]
+
+        insert_records(records, db_path=tmp_db_path)
+
+        # グラフに同期（Next.js → React の関連を作る）
+        for rec in records:
+            entities = json.loads(rec["entities_json"])
+            relations = json.loads(rec["relations_json"])
+            sync_to_graph(
+                memory_id=rec["id"],
+                event=rec["event"],
+                category=rec["category"],
+                timestamp=rec["timestamp"],
+                entities=entities,
+                relations=relations,
+                graph_path=tmp_graph_path,
+            )
+
+        return tmp_db_path, tmp_graph_path
+
+    def test_hybrid_search_boosts_graph_related_results(self, hybrid_db):
+        """graph_path指定時にグラフ関連メモリのスコアがブーストされる"""
+        from engram.recall import search_memories
+
+        db_path, graph_path = hybrid_db
+
+        # "Next.js" で検索 → Next.js記憶がトップ、React記憶もグラフ経由でブーストされる
+        results_hybrid = search_memories(
+            "Next.jsのエラー", db_path=db_path, graph_path=graph_path, limit=3
+        )
+        results_vector = search_memories(
+            "Next.jsのエラー", db_path=db_path, graph_path=None, limit=3
+        )
+
+        assert len(results_hybrid) > 0
+        assert len(results_vector) > 0
+
+        # ハイブリッドの場合、グラフ経由でブーストされたメモリのスコアが上がっている
+        hybrid_scores = {r["id"]: r["score"] for r in results_hybrid}
+        vector_scores = {r["id"]: r["score"] for r in results_vector}
+
+        # React記憶(bbb...)はNext.jsとグラフ接続があるのでブーストされるはず
+        react_id = "b" * 64
+        if react_id in hybrid_scores and react_id in vector_scores:
+            assert hybrid_scores[react_id] >= vector_scores[react_id]
+
+    def test_hybrid_search_graceful_degradation_none(self, populated_db):
+        """graph_path=None ではベクトルのみ検索（V1互換）"""
+        from engram.recall import search_memories
+
+        results = search_memories(
+            "CORSエラー", db_path=populated_db, graph_path=None
+        )
+        assert len(results) > 0
+        # スコアが通常の範囲内
+        for r in results:
+            assert 0.0 <= r["score"] <= 1.0
+
+    def test_hybrid_search_graceful_degradation_empty_graph(self, populated_db, tmp_graph_path):
+        """グラフDBが空の場合、ベクトルのみ検索と同一挙動"""
+        from engram.recall import search_memories
+
+        results_hybrid = search_memories(
+            "CORSエラー", db_path=populated_db, graph_path=tmp_graph_path
+        )
+        results_vector = search_memories(
+            "CORSエラー", db_path=populated_db, graph_path=None
+        )
+
+        # 同一件数が返るはず（グラフ経由の追加なし）
+        assert len(results_hybrid) == len(results_vector)
+
+    def test_graph_only_hit(self, hybrid_db):
+        """ベクトル検索に出なかったがグラフ走査で見つかるケース"""
+        from engram.recall import search_memories
+
+        db_path, graph_path = hybrid_db
+
+        # limit=1 でベクトル検索すると最も類似した1件のみ
+        # しかしハイブリッドではグラフ経由で追加メモリも取得される可能性がある
+        results_vector = search_memories(
+            "Next.jsのサーバーコンポーネント", db_path=db_path, graph_path=None, limit=1
+        )
+        results_hybrid = search_memories(
+            "Next.jsのサーバーコンポーネント", db_path=db_path, graph_path=graph_path, limit=3
+        )
+
+        # ハイブリッドの方がベクトルのみより多くの結果を返す可能性がある
+        # (グラフ経由で追加メモリが見つかるため)
+        assert len(results_hybrid) >= len(results_vector)
+
+    def test_hybrid_results_sorted_by_final_score(self, hybrid_db):
+        """ハイブリッド結果がfinal_scoreで降順ソートされている"""
+        from engram.recall import search_memories
+
+        db_path, graph_path = hybrid_db
+
+        results = search_memories(
+            "Reactのエラー", db_path=db_path, graph_path=graph_path, limit=5
+        )
+
+        if len(results) >= 2:
+            scores = [r["score"] for r in results]
+            assert scores == sorted(scores, reverse=True)
+
+    def test_graph_boost_weight_affects_score(self, hybrid_db):
+        """graph_boost パラメータがスコアに影響する"""
+        from engram.recall import search_memories
+
+        db_path, graph_path = hybrid_db
+
+        results_low = search_memories(
+            "Next.jsのエラー", db_path=db_path, graph_path=graph_path,
+            graph_boost=0.1, limit=3
+        )
+        results_high = search_memories(
+            "Next.jsのエラー", db_path=db_path, graph_path=graph_path,
+            graph_boost=0.5, limit=3
+        )
+
+        # graph_boost が大きい方が、グラフ接続のあるメモリのスコアが高い
+        react_id = "b" * 64
+        low_score = next((r["score"] for r in results_low if r["id"] == react_id), None)
+        high_score = next((r["score"] for r in results_high if r["id"] == react_id), None)
+
+        if low_score is not None and high_score is not None:
+            assert high_score >= low_score

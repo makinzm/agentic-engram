@@ -31,7 +31,19 @@ def main():
         default=None,
         help="Filter by category",
     )
+    parser.add_argument(
+        "--graph-path",
+        default=os.path.expanduser("~/.engram/memory-db/graph_store"),
+        help="Path to Kuzu graph database directory",
+    )
+    parser.add_argument(
+        "--no-graph",
+        action="store_true",
+        help="Disable graph search (vector-only)",
+    )
     args = parser.parse_args()
+
+    graph_path = None if args.no_graph else args.graph_path
 
     try:
         from engram.recall import search_memories, format_output
@@ -41,6 +53,7 @@ def main():
             db_path=args.db_path,
             limit=args.limit,
             category=args.category,
+            graph_path=graph_path,
         )
         output = format_output(results, fmt=args.format)
         print(output)

@@ -16,7 +16,7 @@ import json
 import os
 import shutil
 import tempfile
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 import pytest
 
@@ -184,3 +184,103 @@ class TestDeleteMemory:
             assert delete_memory(m["id"], tmp_db_path) is True
 
         assert get_all_memories(tmp_db_path) == []
+
+
+# === Scenario 6: get_graph_stats ===
+
+
+class TestConsoleGraphStats:
+    """console.get_graph_stats のテスト"""
+
+    def test_graph_stats_with_data(self, tmp_graph_path):
+        """グラフDBにデータがある場合、統計を返す"""
+        from engram.console import get_graph_stats
+        from engram.graph import sync_to_graph
+
+        sync_to_graph(
+            memory_id="a" * 64,
+            event="テストイベント",
+            category="debugging",
+            timestamp=datetime.datetime.now(),
+            entities=["Python", "LanceDB"],
+            relations=[{"source": "Python", "target": "LanceDB", "type": "USES"}],
+            graph_path=tmp_graph_path,
+        )
+
+        stats = get_graph_stats(tmp_graph_path)
+        assert stats["available"] is True
+        assert stats["entity_count"] >= 2
+        assert stats["memory_count"] >= 1
+        assert isinstance(stats["top_entities"], list)
+
+    def test_graph_stats_unavailable(self, tmp_path):
+        """グラフDBが未初期化の場合、available=False を返す"""
+        from engram.console import get_graph_stats
+
+        nonexistent = str(tmp_path / "nonexistent_graph")
+        stats = get_graph_stats(nonexistent)
+        assert stats == {"available": False}
+
+    def test_graph_stats_empty_graph(self, tmp_graph_path):
+        """グラフDBが初期化済みだがデータ空の場合"""
+        from engram.console import get_graph_stats
+        from engram.graph import get_graph_db
+
+        # スキーマだけ初期化
+        get_graph_db(tmp_graph_path)
+
+        stats = get_graph_stats(tmp_graph_path)
+        assert stats["available"] is True
+        assert stats["entity_count"] == 0
+        assert stats["memory_count"] == 0
+
+
+# === Scenario 7: get_entity_graph ===
+
+
+class TestConsoleEntityGraph:
+    """console.get_entity_graph のテスト"""
+
+    def test_entity_graph_returns_neighborhood(self, tmp_graph_path):
+        """エンティティの近傍グラフデータを返す"""
+        from engram.console import get_entity_graph
+        from engram.graph import sync_to_graph
+
+        sync_to_graph(
+            memory_id="a" * 64,
+            event="テストイベント",
+            category="debugging",
+            timestamp=datetime.datetime.now(),
+            entities=["Python", "LanceDB"],
+            relations=[{"source": "Python", "target": "LanceDB", "type": "USES"}],
+            graph_path=tmp_graph_path,
+        )
+
+        result = get_entity_graph("Python", tmp_graph_path)
+        assert "entity" in result
+        assert result["entity"] == "Python"
+        assert "memories" in result
+        assert "related_entities" in result
+        assert len(result["memories"]) >= 1
+
+    def test_entity_graph_nonexistent_entity(self, tmp_graph_path):
+        """存在しないエンティティの場合、空の近傍を返す"""
+        from engram.console import get_entity_graph
+        from engram.graph import get_graph_db
+
+        get_graph_db(tmp_graph_path)
+
+        result = get_entity_graph("nonexistent", tmp_graph_path)
+        assert result["entity"] == "nonexistent"
+        assert result["memories"] == []
+        assert result["related_entities"] == []
+
+    def test_entity_graph_unavailable_db(self, tmp_path):
+        """グラフDB未初期化の場合、空データを返す"""
+        from engram.console import get_entity_graph
+
+        nonexistent = str(tmp_path / "nonexistent_graph")
+        result = get_entity_graph("Python", nonexistent)
+        assert result["entity"] == "Python"
+        assert result["memories"] == []
+        assert result["related_entities"] == []

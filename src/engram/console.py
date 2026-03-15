@@ -5,11 +5,14 @@ Provides testable functions for memory browsing, stats, and deletion.
 
 from __future__ import annotations
 
+import logging
 import re
 from collections import Counter
 from typing import Any, Dict, List
 
 from engram.db import TABLE_NAME, get_table, record_exists, delete_records
+
+logger = logging.getLogger(__name__)
 
 _ID_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
@@ -78,3 +81,40 @@ def delete_memory(memory_id: str, db_path: str) -> bool:
 
     delete_records([memory_id], db_path)
     return True
+
+
+def get_graph_stats(graph_path: str) -> Dict[str, Any]:
+    """Return graph DB statistics. Returns {"available": False} if unavailable."""
+    try:
+        from engram.graph import is_graph_available
+        from engram.graph import get_graph_stats as _get_graph_stats
+
+        if not is_graph_available(graph_path):
+            return {"available": False}
+
+        stats = _get_graph_stats(graph_path)
+        stats["available"] = True
+        return stats
+    except ImportError:
+        return {"available": False}
+    except Exception:
+        return {"available": False}
+
+
+def get_entity_graph(entity_name: str, graph_path: str) -> Dict[str, Any]:
+    """Return neighborhood graph data for a given entity (for visualization).
+
+    Returns empty data if graph DB is unavailable.
+    """
+    empty = {"entity": entity_name, "memories": [], "related_entities": []}
+    try:
+        from engram.graph import is_graph_available, get_entity_neighborhood
+
+        if not is_graph_available(graph_path):
+            return empty
+
+        return get_entity_neighborhood(entity_name, graph_path)
+    except ImportError:
+        return empty
+    except Exception:
+        return empty
