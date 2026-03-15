@@ -5,12 +5,38 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import shutil
 import time
 from typing import Any, Callable, Dict, List, Optional
 
 from engram.cursor import CursorManager
 from engram.prompts import build_extraction_prompt
+
+# ANSI エスケープシーケンス除去パターン
+# CSI (ESC[...)、OSC (ESC]...BEL/ST)、その他 ESC シーケンスを網羅
+_ANSI_RE = re.compile(
+    r"\x1b"           # ESC
+    r"(?:"
+    r"\[[0-9;?]*[a-zA-Z]"       # CSI: ESC [ ... letter
+    r"|\][^\x07\x1b]*(?:\x07|\x1b\\)"  # OSC: ESC ] ... BEL/ST
+    r"|[()][0-9A-Za-z]"         # charset: ESC ( B 等
+    r"|[>=<].*?(?=\x1b|$)"      # private modes: ESC > ...
+    r"|."                       # その他: ESC に続く1文字
+    r")"
+)
+
+# 制御文字（タブ・改行以外）
+_CTRL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
+def sanitize_terminal_output(text: str) -> str:
+    """ANSI エスケープシーケンスと制御文字を除去し、可読テキストにする。"""
+    text = _ANSI_RE.sub("", text)
+    text = _CTRL_RE.sub("", text)
+    # 連続する空行を1つに圧縮
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text
 
 
 def scan_logs(log_dir: str, cursor_manager: CursorManager) -> List[Dict[str, Any]]:
@@ -61,29 +87,46 @@ def process_log(
     llm_fn: Callable,
     db_path: str,
     recall_fn: Optional[Callable] = None,
+    parser: Optional[Any] = None,
 ) -> None:
-    """1ファイルを処理する。差分読み取り → LLM → ae-save。"""
+    """1ファイルを処理する。差分読み取り → LLM → ae-save。
+
+    parser が指定された場合は parser.read_diff() で差分を取得する。
+    parser=None の場合は既存のテキスト形式の読み取りを行う（後方互換）。
+    """
 
     if not os.path.exists(filepath):
         return
 
-    filename = os.path.basename(filepath)
-    cursor = cursor_manager.get_cursor(filename)
-    last_read_line = cursor["last_read_line"]
+    if parser is not None:
+        # パーサー経由: cursor キーは base_dir からの相対パス
+        cursor_key = os.path.relpath(filepath, parser._base_dir)
+        cursor = cursor_manager.get_cursor(cursor_key)
+        last_read_line = cursor["last_read_line"]
 
-    # 差分の読み取り（イテレータでスキップし、メモリ展開を最小化）
-    diff_lines: list[str] = []
-    total_lines = 0
-    with open(filepath, "r") as f:
-        for i, line in enumerate(f):
-            total_lines = i + 1
-            if i >= last_read_line:
-                diff_lines.append(line)
+        diff_text, total_lines = parser.read_diff(filepath, last_read_line)
 
-    if last_read_line >= total_lines:
-        return  # no diff → noop
+        if last_read_line >= total_lines:
+            return  # no diff → noop
+    else:
+        # レガシー: テキスト形式の直接読み取り
+        filename = os.path.basename(filepath)
+        cursor_key = filename
+        cursor = cursor_manager.get_cursor(cursor_key)
+        last_read_line = cursor["last_read_line"]
 
-    diff_text = "".join(diff_lines)
+        diff_lines: list[str] = []
+        total_lines = 0
+        with open(filepath, "r") as f:
+            for i, line in enumerate(f):
+                total_lines = i + 1
+                if i >= last_read_line:
+                    diff_lines.append(line)
+
+        if last_read_line >= total_lines:
+            return  # no diff → noop
+
+        diff_text = sanitize_terminal_output("".join(diff_lines))
 
     if not diff_text.strip():
         return
@@ -132,10 +175,10 @@ def process_log(
             logging.error("save_memories() の実行中にエラーが発生しました: %s", e)
             return  # 保存失敗 → カーソル更新しない
 
-        cursor_manager.update_cursor(filename, last_read_line=total_lines, last_checked_mtime=current_mtime)
+        cursor_manager.update_cursor(cursor_key, last_read_line=total_lines, last_checked_mtime=current_mtime)
     elif all_skip:
         # SKIP のみ: last_read_line は進めず mtime だけ更新
-        cursor_manager.update_cursor(filename, last_read_line=last_read_line, last_checked_mtime=current_mtime)
+        cursor_manager.update_cursor(cursor_key, last_read_line=last_read_line, last_checked_mtime=current_mtime)
 
 
 def archive_stale_logs(
