@@ -76,6 +76,12 @@ def mock_llm_skip():
 
 
 @pytest.fixture
+def tmp_jsonl_dir(tmp_path):
+    """Claude Code ログのテスト用ディレクトリ"""
+    return str(tmp_path / "claude_projects")
+
+
+@pytest.fixture
 def tmp_graph_path(tmp_path):
     path = str(tmp_path / "test_graph_store")
     yield path
