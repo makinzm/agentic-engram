@@ -107,6 +107,9 @@ class ClaudeCodeParser:
         pattern = os.path.join(self._base_dir, "**", "*.jsonl")
 
         for filepath in glob.glob(pattern, recursive=True):
+            # subagents/ 配下はノイズが多いため除外
+            if "/subagents/" in filepath:
+                continue
             cursor_key = os.path.relpath(filepath, self._base_dir)
             current_mtime = os.path.getmtime(filepath)
             cursor = cursor_manager.get_cursor(cursor_key)

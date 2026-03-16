@@ -542,3 +542,54 @@ class TestEdgeCases:
         cursor = cm.get_cursor("session_empty_log.txt")
         assert cursor["last_read_line"] == 0
         assert cursor["last_checked_mtime"] == 0.0  # mtimeも更新されない
+
+
+# === BDD Scenario 9: sanitize_terminal_output ===
+
+class TestSanitizeTerminalOutput:
+    """scriptコマンドの生ログからANSIエスケープシーケンスを除去する"""
+
+    def test_strips_ansi_color_codes(self):
+        from engram.miner import sanitize_terminal_output
+        raw = "\x1b[38;2;215;119;87mHello\x1b[39m World"
+        assert sanitize_terminal_output(raw) == "Hello World"
+
+    def test_strips_csi_sequences(self):
+        from engram.miner import sanitize_terminal_output
+        raw = "\x1b[?2004h\x1b[?1004hSome text\x1b[0m"
+        assert sanitize_terminal_output(raw) == "Some text"
+
+    def test_strips_osc_sequences(self):
+        from engram.miner import sanitize_terminal_output
+        raw = "\x1b]0;title\x07content"
+        assert sanitize_terminal_output(raw) == "content"
+
+    def test_strips_control_chars(self):
+        from engram.miner import sanitize_terminal_output
+        raw = "hello\x00\x01\x02world"
+        assert sanitize_terminal_output(raw) == "helloworld"
+
+    def test_preserves_tabs_and_newlines(self):
+        from engram.miner import sanitize_terminal_output
+        raw = "line1\n\tindented\nline3"
+        assert sanitize_terminal_output(raw) == "line1\n\tindented\nline3"
+
+    def test_collapses_excessive_blank_lines(self):
+        from engram.miner import sanitize_terminal_output
+        raw = "a\n\n\n\n\nb"
+        assert sanitize_terminal_output(raw) == "a\n\nb"
+
+    def test_real_claude_code_output(self):
+        """ユーザーが報告した実際のClaude Code出力を処理できる"""
+        from engram.miner import sanitize_terminal_output
+        raw = (
+            "\x1b[?2004h\x1b[?1004h\x1b[>1u\x1b[?25l\x1b[>0q\x1b[c\x1b[<u"
+            "\x1b[?1004l\x1b[?2004l\x1b[?2026h"
+            "\x1b[38;2;215;119;87m╭───\x1b[1CClaude\x1b[1CCode\x1b[1C"
+            "\x1b[38;2;153;153;153mv2.1.74\x1b[1C"
+            "\x1b[38;2;215;119;87m────╮\x1b[39m"
+        )
+        result = sanitize_terminal_output(raw)
+        assert "Claude" in result
+        assert "v2.1.74" in result
+        assert "\x1b" not in result
