@@ -198,7 +198,9 @@ for target in parser.scan(cm):
 
 ## Automated Scheduling
 
-### cron (Linux / macOS)
+> **macOS note:** If your LLM backend (e.g. `claude -p`) uses macOS Keychain for authentication, you **must** use launchd instead of cron. Cron jobs run outside the user login session and cannot access Keychain credentials, resulting in authentication errors. LaunchAgents run within the user session and have full Keychain access. Also add the `-u` flag to Python to disable stdout buffering when output is redirected to a log file.
+
+### cron (Linux)
 
 Run `ae-miner` every 30 minutes:
 
@@ -210,7 +212,7 @@ crontab -e
 */30 * * * * cd /path/to/agentic-engram && .venv/bin/python scripts/ae-miner.py --llm claude-code >> ~/.engram/miner.log 2>&1
 ```
 
-### launchd (macOS native)
+### launchd (macOS recommended)
 
 Create `~/Library/LaunchAgents/com.engram.miner.plist`:
 

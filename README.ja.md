@@ -198,7 +198,9 @@ for target in parser.scan(cm):
 
 ## 自動スケジューリング
 
-### cron（Linux / macOS）
+> **macOS注意:** LLMバックエンド（例：`claude -p`）がmacOS Keychainで認証する場合、cronではなく**launchdを使用する必要がある**。cronジョブはユーザーログインセッション外で実行されるため、Keychainにアクセスできず認証エラーになる。LaunchAgentsはユーザーセッション内で実行されるため、Keychainに完全にアクセスできる。また、ログファイルへのリダイレクト時はPythonに`-u`フラグを付けてstdoutバッファリングを無効化すること。
+
+### cron（Linux）
 
 `ae-miner`を30分ごとに実行する：
 
@@ -210,7 +212,7 @@ crontab -e
 */30 * * * * cd /path/to/agentic-engram && .venv/bin/python scripts/ae-miner.py --llm claude-code >> ~/.engram/miner.log 2>&1
 ```
 
-### launchd（macOSネイティブ）
+### launchd（macOS推奨）
 
 `~/Library/LaunchAgents/com.engram.miner.plist`を作成する：
 
