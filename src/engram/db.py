@@ -37,6 +37,7 @@ ENGRAM_SCHEMA = pa.schema([
     pa.field("timestamp", pa.timestamp("s")),
     pa.field("entities_json", pa.string()),
     pa.field("relations_json", pa.string()),
+    pa.field("occurrence_count", pa.int32()),
 ])
 
 
@@ -72,6 +73,9 @@ def insert_records(records: List[Dict[str, Any]], db_path: str) -> None:
         # Truncate timestamp to second precision to match schema timestamp('s')
         if "timestamp" in rec and isinstance(rec["timestamp"], datetime.datetime):
             rec["timestamp"] = rec["timestamp"].replace(microsecond=0)
+        # Default occurrence_count to 1 if not provided
+        if "occurrence_count" not in rec or rec["occurrence_count"] is None:
+            rec["occurrence_count"] = 1
 
     table = _ensure_table(db_path)
     table.add(records)
