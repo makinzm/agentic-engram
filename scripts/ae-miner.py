@@ -39,21 +39,23 @@ def _extract_json_array(text: str) -> str:
     return text
 
 
-def _make_cli_llm(cli_name: str):
+def _make_cli_llm(cli_name: str, model: str = None):
     """CLI名に応じた llm_fn を返すファクトリ。"""
 
-    configs = {
-        "claude-code": {
-            "cmd": ["claude", "-p", "--output-format", "text"],
-        },
-        "codex": {
-            "cmd": ["codex", "exec"],
-        },
-        "gemini": {
-            "cmd": ["gemini"],
-        },
-    }
-    config = configs[cli_name]
+    cmd = {
+        "claude-code": ["claude", "-p", "--output-format", "text"],
+        "codex": ["codex", "exec"],
+        "gemini": ["gemini"],
+    }[cli_name]
+
+    # --model 指定があれば追加
+    if model:
+        if cli_name == "claude-code":
+            cmd = cmd + ["--model", model]
+        elif cli_name == "codex":
+            cmd = cmd + ["-c", f"model={model}"]
+
+    config = {"cmd": cmd}
 
     def llm_fn(messages: list) -> str:
         prompt = messages[0]["content"] + "\n\n" + messages[1]["content"]
@@ -122,6 +124,11 @@ def main():
         help="CLI tool to use as LLM backend (claude-code, codex, gemini)",
     )
     parser.add_argument(
+        "--model",
+        default=None,
+        help="Model to use for LLM backend (e.g. sonnet, opus, gpt-4o)",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Show what would be processed without actually calling LLM",
@@ -167,7 +174,7 @@ def main():
                 )
                 sys.exit(1)
             else:
-                llm_fn = _make_cli_llm(args.llm)
+                llm_fn = _make_cli_llm(args.llm, model=args.model)
 
                 for t in targets:
                     print(f"  Processing: {t['filename']} ...")
