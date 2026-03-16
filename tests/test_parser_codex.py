@@ -82,15 +82,17 @@ class TestFormatEntry:
         result = _format_entry(entry)
         assert result == ["[TOOL] read_file"]
 
-    def test_user_message_from_event_msg(self):
+    def test_user_message_event_msg_skipped_to_avoid_duplication(self):
+        """event_msg の user_message は response_item と重複するためスキップ."""
         entry = _make_event_msg("user_message", message="What is 2+2?")
         result = _format_entry(entry)
-        assert result == ["[USER] What is 2+2?"]
+        assert result == []
 
-    def test_agent_message_from_event_msg(self):
+    def test_agent_message_event_msg_skipped_to_avoid_duplication(self):
+        """event_msg の agent_message は response_item と重複するためスキップ."""
         entry = _make_event_msg("agent_message", message="The answer is 4.")
         result = _format_entry(entry)
-        assert result == ["[ASSISTANT] The answer is 4."]
+        assert result == []
 
     def test_exec_command_begin(self):
         entry = _make_event_msg("exec_command_begin", command="git status")
@@ -117,6 +119,16 @@ class TestFormatEntry:
     def test_xml_tagged_text_skipped(self):
         """<permissions> 等のシステムタグ付きテキストはスキップ."""
         entry = _make_response_item("user", [{"type": "input_text", "text": "<permissions instructions>..."}])
+        assert _format_entry(entry) == []
+
+    def test_agents_md_text_skipped(self):
+        """AGENTS.md instructions テキストはスキップ."""
+        entry = _make_response_item("user", [{"type": "input_text", "text": "# AGENTS.md instructions for /foo\n<INSTRUCTIONS>..."}])
+        assert _format_entry(entry) == []
+
+    def test_skills_section_text_skipped(self):
+        """## Skills セクションテキストはスキップ."""
+        entry = _make_response_item("user", [{"type": "input_text", "text": "## Skills\nA skill is..."}])
         assert _format_entry(entry) == []
 
 

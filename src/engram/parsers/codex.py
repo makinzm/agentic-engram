@@ -43,6 +43,18 @@ _SKIP_EVENT_TYPES = frozenset({
 })
 
 
+_SYSTEM_TEXT_PREFIXES = (
+    "<",                    # <permissions>, <environment_context>, etc.
+    "# AGENTS.md",          # AGENTS.md instructions block
+    "## Skills",            # Skills section from AGENTS.md
+)
+
+
+def _is_system_text(text: str) -> bool:
+    """システムプロンプト由来のテキストか判定する。"""
+    return text.startswith(_SYSTEM_TEXT_PREFIXES)
+
+
 def _format_entry(entry: dict) -> List[str]:
     """1つのJSONLエントリをフォーマット済み行のリストに変換する。"""
     entry_type = entry.get("type", "")
@@ -85,7 +97,7 @@ def _format_response_item(payload: dict) -> List[str]:
             if ci_type == "input_text" and role == "user":
                 text = ci.get("text", "")
                 # AGENTS.md やシステムプロンプトの大きなテキストはスキップ
-                if text and len(text) < 5000 and not text.startswith("<"):
+                if text and len(text) < 5000 and not _is_system_text(text):
                     lines.append(f"[USER] {text}")
             elif ci_type == "output_text" and role == "assistant":
                 text = ci.get("text", "")
@@ -110,22 +122,19 @@ def _format_response_item(payload: dict) -> List[str]:
 
 
 def _format_event_msg(payload: dict) -> List[str]:
-    """event_msg をフォーマットする。"""
+    """event_msg をフォーマットする。
+
+    注意: response_item と event_msg で同じメッセージが重複記録されるため、
+    event_msg 側の user_message / agent_message はスキップし、
+    response_item 側のみを採用する。
+    """
     event_type = payload.get("type", "")
 
     if event_type in _SKIP_EVENT_TYPES:
         return []
 
-    if event_type == "agent_message":
-        message = payload.get("message", "")
-        if message:
-            return [f"[ASSISTANT] {message}"]
-        return []
-
-    if event_type == "user_message":
-        message = payload.get("message", "")
-        if message:
-            return [f"[USER] {message}"]
+    # user_message / agent_message は response_item 側と重複するためスキップ
+    if event_type in ("user_message", "agent_message"):
         return []
 
     if event_type == "exec_command_begin":
