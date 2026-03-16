@@ -175,13 +175,19 @@ Add the following to your project's `CLAUDE.md` (or `~/.claude/CLAUDE.md` for gl
 
 ```markdown
 ## Memory Recall
-When you encounter an unfamiliar error, unexpected behavior, or need to check
-if a similar problem was solved before, run:
-  python /path/to/agentic-engram/scripts/ae-recall.py --query "<describe the issue>" --format markdown --limit 3
-Review the results before attempting a fix from scratch.
+Before starting work, check if past experience is relevant:
+- Starting a new feature or implementation (similar past approaches)
+- Making design or architecture decisions (past tradeoffs and rationale)
+- Choosing libraries or tools (tips and pitfalls from past use)
+- Encountering unfamiliar errors or unexpected behavior (past solutions)
+- Deciding on a workflow or approach (what worked well before)
+
+Run:
+  python /path/to/agentic-engram/scripts/ae-recall.py --query "<describe the task or issue>" --format markdown --limit 3
+Consult past experience before starting from scratch.
 ```
 
-The agent will then autonomously invoke `ae-recall` when it hits unknown errors, retrieving past lessons before trying to solve problems from scratch.
+The agent will then autonomously invoke `ae-recall` not only when it hits errors, but proactively at the start of any significant task -- much like how humans draw on past experience before beginning new work.
 
 ### Miner -- Using AI CLI Tools
 

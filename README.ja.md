@@ -175,13 +175,19 @@ streamlit run scripts/ae-console.py
 
 ```markdown
 ## Memory Recall
-When you encounter an unfamiliar error, unexpected behavior, or need to check
-if a similar problem was solved before, run:
-  python /path/to/agentic-engram/scripts/ae-recall.py --query "<describe the issue>" --format markdown --limit 3
-Review the results before attempting a fix from scratch.
+作業を始める前に、過去の経験が活かせないか確認すること：
+- 新しい機能の実装を始める時（似た実装の経験がないか）
+- 設計判断やアーキテクチャの選択を行う時（過去の判断根拠やトレードオフ）
+- ライブラリやツールの使い方を検討する時（過去に得たコツや落とし穴）
+- 未知のエラーや予期しない挙動に遭遇した時（過去に似た問題を解決していないか）
+- 作業手順やワークフローに迷った時（効率的だった進め方）
+
+以下を実行：
+  python /path/to/agentic-engram/scripts/ae-recall.py --query "<作業内容や問題の説明>" --format markdown --limit 3
+ゼロから考えるのではなく、まず過去の経験を参照すること。
 ```
 
-エージェントは未知のエラーに遭遇した際に自律的に`ae-recall`を呼び出し、ゼロから解決を試みる前に過去の教訓を取得する。
+エージェントはエラー発生時だけでなく、あらゆる作業の開始時にプロアクティブに`ae-recall`を呼び出す。人間が新しい作業を始める前に過去の経験を想起するのと同じように。
 
 ### マイナー -- AIコーディングエージェントCLIの利用
 
