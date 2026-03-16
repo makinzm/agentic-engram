@@ -6,9 +6,11 @@ from typing import Any
 
 from engram.parsers.base import SessionParser
 from engram.parsers.claude_code import ClaudeCodeParser
+from engram.parsers.codex import CodexParser
 
 PARSERS = {
     "claude-code": ClaudeCodeParser,
+    "codex": CodexParser,
 }
 
 

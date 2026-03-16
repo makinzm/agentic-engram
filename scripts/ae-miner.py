@@ -10,11 +10,12 @@ import subprocess
 import sys
 
 LLM_CHOICES = ["claude-code", "codex", "gemini"]
-SOURCE_CHOICES = ["text", "claude-code"]
+SOURCE_CHOICES = ["text", "claude-code", "codex"]
 
 _DEFAULT_LOG_DIRS = {
     "text": "~/.engram/short-term-memory",
     "claude-code": "~/.claude/projects",
+    "codex": "~/.codex/sessions",
 }
 
 
@@ -46,7 +47,7 @@ def _make_cli_llm(cli_name: str):
             "cmd": ["claude", "-p", "--output-format", "text"],
         },
         "codex": {
-            "cmd": ["codex", "-q"],
+            "cmd": ["codex", "exec"],
         },
         "gemini": {
             "cmd": ["gemini"],
@@ -142,6 +143,10 @@ def main():
         if args.source == "claude-code":
             from engram.parsers.claude_code import ClaudeCodeParser
             session_parser = ClaudeCodeParser(base_dir=log_dir)
+            targets = session_parser.scan(cm)
+        elif args.source == "codex":
+            from engram.parsers.codex import CodexParser
+            session_parser = CodexParser(base_dir=log_dir)
             targets = session_parser.scan(cm)
         else:
             targets = scan_logs(log_dir, cm)
