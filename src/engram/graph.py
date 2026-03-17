@@ -11,8 +11,9 @@ import kuzu
 
 logger = logging.getLogger(__name__)
 
-# Cache open databases to avoid re-opening in the same process
+# Cache open databases and connections to avoid re-opening in the same process
 _db_cache: Dict[str, kuzu.Database] = {}
+_conn_cache: Dict[str, kuzu.Connection] = {}
 _schema_initialized: set = set()
 
 _DDL_STATEMENTS = [
@@ -55,21 +56,32 @@ def get_graph_db(graph_path: str) -> kuzu.Database:
         conn = kuzu.Connection(db)
         for ddl in _DDL_STATEMENTS:
             conn.execute(ddl)
+        # Store the connection for reuse
+        _conn_cache[graph_path] = conn
         _schema_initialized.add(graph_path)
 
     return db
 
 
+def get_connection(graph_path: str) -> kuzu.Connection:
+    """Get a cached Connection for the given graph_path."""
+    if graph_path not in _conn_cache:
+        db = get_graph_db(graph_path)
+        _conn_cache[graph_path] = kuzu.Connection(db)
+    return _conn_cache[graph_path]
+
+
 def close_graph_db(graph_path: str) -> None:
-    """Close and remove a cached DB instance. Useful for tests."""
+    """Close and remove cached DB/Connection instances. Useful for tests."""
     _schema_initialized.discard(graph_path)
+    _conn_cache.pop(graph_path, None)
     db = _db_cache.pop(graph_path, None)
     if db is not None:
         del db
 
 
 def is_graph_available(graph_path: str) -> bool:
-    """Return True if the graph DB directory exists and can be opened."""
+    """Return True if the graph DB exists and can be opened."""
     if not os.path.exists(graph_path):
         return False
     try:
@@ -93,8 +105,8 @@ def sync_to_graph(
     Idempotent: if the Memory node already exists, its edges are deleted and
     rebuilt so a re-sync produces the same result.
     """
-    db = get_graph_db(graph_path)
-    conn = kuzu.Connection(db)
+    get_graph_db(graph_path)
+    conn = get_connection(graph_path)
 
     # If memory already exists, clean up its edges first
     _result = conn.execute(
@@ -185,8 +197,8 @@ def remove_from_graph(memory_id: str, graph_path: str) -> None:
 
     Decrements mention_count on related Entity nodes.
     """
-    db = get_graph_db(graph_path)
-    conn = kuzu.Connection(db)
+    get_graph_db(graph_path)
+    conn = get_connection(graph_path)
 
     # Get entities mentioned by this memory
     result = conn.execute(
@@ -234,8 +246,8 @@ def find_related_memories(
     if not entity_names:
         return []
 
-    db = get_graph_db(graph_path)
-    conn = kuzu.Connection(db)
+    get_graph_db(graph_path)
+    conn = get_connection(graph_path)
 
     all_ids: List[str] = []
 
@@ -288,8 +300,8 @@ def get_entity_neighborhood(
     max_hops: int = 1,
 ) -> Dict:
     """Return the neighborhood of an entity: memories and related entities."""
-    db = get_graph_db(graph_path)
-    conn = kuzu.Connection(db)
+    get_graph_db(graph_path)
+    conn = get_connection(graph_path)
 
     # Memories that mention this entity
     result = conn.execute(
@@ -322,8 +334,8 @@ def get_entity_neighborhood(
 
 def get_graph_stats(graph_path: str) -> Dict:
     """Return basic statistics about the graph."""
-    db = get_graph_db(graph_path)
-    conn = kuzu.Connection(db)
+    get_graph_db(graph_path)
+    conn = get_connection(graph_path)
 
     def _count(query: str) -> int:
         result = conn.execute(query)

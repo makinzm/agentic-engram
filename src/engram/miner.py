@@ -88,6 +88,7 @@ def process_log(
     db_path: str,
     recall_fn: Optional[Callable] = None,
     parser: Optional[Any] = None,
+    graph_path: Optional[str] = None,
 ) -> None:
     """1ファイルを処理する。差分読み取り → LLM → ae-save。
 
@@ -170,7 +171,7 @@ def process_log(
         from engram.save import save_memories
         write_actions = [a for a in actions if a.get("action") in ("INSERT", "UPDATE")]
         try:
-            save_memories(write_actions, db_path=db_path)
+            save_memories(write_actions, db_path=db_path, graph_path=graph_path)
         except Exception as e:
             logging.error("save_memories() の実行中にエラーが発生しました: %s", e)
             return  # 保存失敗 → カーソル更新しない

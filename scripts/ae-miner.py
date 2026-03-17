@@ -102,6 +102,11 @@ def main():
         help="Path to LanceDB database directory",
     )
     parser.add_argument(
+        "--graph-path",
+        default=os.path.expanduser("~/.engram/memory-db/graph_store"),
+        help="Path to Kùzu graph database directory",
+    )
+    parser.add_argument(
         "--cursor-path",
         default=os.path.expanduser("~/.engram/config/cursor.json"),
         help="Path to cursor.json",
@@ -127,6 +132,12 @@ def main():
         "--model",
         default=None,
         help="Model to use for LLM backend (e.g. sonnet, opus, gpt-4o)",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Maximum number of session files to process per run",
     )
     parser.add_argument(
         "--dry-run",
@@ -161,7 +172,11 @@ def main():
         if not targets:
             print("No log files to process.")
         else:
-            print(f"Found {len(targets)} log file(s) to process.")
+            if args.limit is not None and len(targets) > args.limit:
+                print(f"Found {len(targets)} log file(s), processing first {args.limit}.")
+                targets = targets[:args.limit]
+            else:
+                print(f"Found {len(targets)} log file(s) to process.")
 
             if args.dry_run:
                 for t in targets:
@@ -185,6 +200,7 @@ def main():
                             llm_fn,
                             db_path=args.db_path,
                             parser=session_parser,
+                            graph_path=args.graph_path,
                         )
                     except subprocess.TimeoutExpired:
                         print(

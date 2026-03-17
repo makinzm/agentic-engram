@@ -24,6 +24,19 @@ _SKIP_TYPES = frozenset({
     "queue-operation",
 })
 
+# 人間がAIの提案を否定・修正するパターン
+_CORRECTION_PATTERNS = [
+    "じゃなくて", "ではなく", "じゃなく",
+    "やめて", "やめよう", "やめましょう",
+    "違う", "違います",
+    "そうじゃなくて", "そうではなく",
+    "使わないで", "使わない",
+    "いらない", "不要",
+    "instead", "don't use", "do not use", "not that",
+    "wrong", "no,", "no.", "nope",
+    "変えて", "変更して",
+]
+
 
 def _summarize_tool_use(name: str, input_data: dict) -> str:
     """tool_use ブロックを要約文字列に変換する。"""
@@ -63,7 +76,11 @@ def _format_entry(entry: dict) -> List[str]:
     if entry_type == "user":
         content = message.get("content", "")
         if isinstance(content, str) and content:
-            return [f"[USER] {content}"]
+            # 人間がAIを否定・修正しているパターンを検出
+            content_lower = content.lower()
+            is_correction = any(p in content_lower for p in _CORRECTION_PATTERNS)
+            prefix = "[CORRECTION]" if is_correction else "[USER]"
+            return [f"{prefix} {content}"]
         return []
 
     if entry_type == "assistant":
