@@ -43,8 +43,8 @@ def _make_cli_llm(cli_name: str, model: str = None):
     """CLI名に応じた llm_fn を返すファクトリ。"""
 
     cmd = {
-        "claude-code": ["claude", "-p", "--output-format", "text"],
-        "codex": ["codex", "exec"],
+        "claude-code": ["claude", "-p", "--output-format", "text", "--no-session-persistence"],
+        "codex": ["codex", "exec", "--ephemeral"],
         "gemini": ["gemini"],
     }[cli_name]
 
