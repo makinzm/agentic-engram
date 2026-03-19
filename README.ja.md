@@ -175,7 +175,7 @@ python scripts/ae-groom.py --llm claude-code|codex|gemini
 ```
 
 - `--dry-run`：各フェーズの対象件数を表示するがDBは変更しない
-- `--normalize-categories-only`：Phase 1のみ実行（LLM不要）
+- `--normalize-categories-only`：Phase 1のみ実行（LLM任意 -- なしなら固定マッピングのみ、`--llm`指定で未知カテゴリもLLM分類）
 - `--re-extract-only`：Phase 2のみ実行（LLM必要）
 - `--rebuild-graph-only`：Phase 3+4のみ実行（LLM不要）
 - `--batch-size`：エンティティ再抽出の1回のLLM呼び出しで処理するメモリ件数（デフォルト: 5）
@@ -183,7 +183,7 @@ python scripts/ae-groom.py --llm claude-code|codex|gemini
 
 **フェーズ:**
 
-1. **カテゴリ正規化** -- 分散したカテゴリを正規マッピングに従って統合（例：`troubleshooting` → `debugging`、`backend` → `implementation`）
+1. **カテゴリ正規化** -- 固定マッピング（例：`troubleshooting` → `debugging`）と、未知カテゴリのLLM分類で正規カテゴリに統合
 2. **エンティティ/リレーション再抽出** -- 全メモリをLLMに送り、統一された品質でエンティティとリレーションを再抽出する
 3. **グラフDB再構築** -- VectorDBをSingle Source of TruthとしてKuzuグラフDBを削除・再構築する
 4. **孤立エンティティ掃除** -- `mention_count ≤ 0` のエンティティを削除する

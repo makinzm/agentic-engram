@@ -175,7 +175,7 @@ python scripts/ae-groom.py --llm claude-code|codex|gemini
 ```
 
 - `--dry-run`: preview what each phase would do without modifying the DB
-- `--normalize-categories-only`: run Phase 1 only (no LLM required)
+- `--normalize-categories-only`: run Phase 1 only (LLM optional -- without LLM, only fixed mappings are applied; with `--llm`, unknown categories are also classified)
 - `--re-extract-only`: run Phase 2 only (LLM required)
 - `--rebuild-graph-only`: run Phase 3+4 only (no LLM required)
 - `--batch-size`: number of memories per LLM call for entity re-extraction (default: 5)
@@ -183,7 +183,7 @@ python scripts/ae-groom.py --llm claude-code|codex|gemini
 
 **Phases:**
 
-1. **Category normalization** -- maps scattered categories (e.g. `troubleshooting` → `debugging`, `backend` → `implementation`) to a canonical set
+1. **Category normalization** -- maps scattered categories to a canonical set via fixed mappings (e.g. `troubleshooting` → `debugging`) and LLM classification for unknown categories
 2. **Entity/relation re-extraction** -- sends all memories to an LLM to re-extract entities and relations with consistent quality
 3. **Graph DB rebuild** -- deletes and rebuilds the Kuzu graph DB from VectorDB as the single source of truth
 4. **Orphan entity cleanup** -- removes entities with `mention_count ≤ 0`
