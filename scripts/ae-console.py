@@ -59,35 +59,21 @@ st.header("All Memories")
 memories = get_all_memories(db_path)
 
 if memories:
-    # Build display data
+    # Build display data — show all columns, stringify lists for readability
     display_data = []
     for m in memories:
-        tags = m.get("tags", [])
-        if isinstance(tags, list):
-            tags = ", ".join(str(t) for t in tags)
-        display_data.append(
-            {
-                "id": m.get("id", "")[:12] + "...",
-                "event": m.get("event", ""),
-                "category": m.get("category", ""),
-                "tags": tags,
-                "session_id": m.get("session_id", ""),
-                "timestamp": m.get("timestamp", ""),
-                "full_id": m.get("id", ""),
-            }
-        )
+        row = {}
+        for k, v in m.items():
+            if isinstance(v, list):
+                v = ", ".join(str(item) for item in v)
+            row[k] = v
+        display_data.append(row)
 
-    st.dataframe(
-        [
-            {k: v for k, v in d.items() if k != "full_id"}
-            for d in display_data
-        ],
-        use_container_width=True,
-    )
+    st.dataframe(display_data, use_container_width=True)
 
     # --- Delete ---
     st.header("Delete Memory")
-    id_options = [d["full_id"] for d in display_data]
+    id_options = [m.get("id", "") for m in memories]
     selected_id = st.selectbox("Select memory ID to delete", id_options)
 
     if st.button("Delete", type="primary"):
