@@ -34,6 +34,14 @@ dev = ["pytest"]
 [project.urls]
 Repository = "https://github.com/sert-xx/agentic-engram"
 
+[project.scripts]
+ae-recall = "engram.cli.recall:main"
+ae-save = "engram.cli.save:main"
+ae-miner = "engram.cli.miner:main"
+ae-consolidate = "engram.cli.consolidate:main"
+ae-groom = "engram.cli.groom:main"
+ae-console = "engram.cli.console:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 

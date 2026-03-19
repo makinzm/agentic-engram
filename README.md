@@ -55,35 +55,37 @@ flowchart LR
 pip install -e ".[dev]"
 ```
 
+This registers all CLI commands (`ae-recall`, `ae-save`, `ae-miner`, `ae-consolidate`, `ae-groom`, `ae-console`) in your virtualenv.
+
 ### Save a memory manually
 
 ```bash
 echo '[{"action":"INSERT","payload":{"event":"CORS error with Ollama","context":"Direct fetch from Next.js client","core_lessons":"Use Route Handler as proxy","category":"architecture","tags":["Next.js","CORS"],"related_files":["app/api/chat/route.ts"],"session_id":"session_001"}}]' \
-  | python scripts/ae-save.py
+  | ae-save
 ```
 
 ### Search memories
 
 ```bash
-python scripts/ae-recall.py --query "CORS error" --format markdown
-python scripts/ae-recall.py --query "CORS error" --format json --limit 3
+ae-recall --query "CORS error" --format markdown
+ae-recall --query "CORS error" --format json --limit 3
 ```
 
 ### Run the miner
 
 ```bash
-python scripts/ae-miner.py --dry-run                # preview target log files (no LLM required)
-python scripts/ae-miner.py --llm claude-code         # mine Claude Code JSONL logs (default)
-python scripts/ae-miner.py --source codex --llm claude-code  # mine Codex CLI JSONL logs
-python scripts/ae-miner.py --llm codex               # use Codex CLI as LLM backend
-python scripts/ae-miner.py --llm gemini              # use Gemini CLI as LLM backend
-python scripts/ae-miner.py --source text --llm claude-code  # legacy: mine raw text logs
+ae-miner --dry-run                # preview target log files (no LLM required)
+ae-miner --llm claude-code         # mine Claude Code JSONL logs (default)
+ae-miner --source codex --llm claude-code  # mine Codex CLI JSONL logs
+ae-miner --llm codex               # use Codex CLI as LLM backend
+ae-miner --llm gemini              # use Gemini CLI as LLM backend
+ae-miner --source text --llm claude-code  # legacy: mine raw text logs
 ```
 
 ### Launch the console
 
 ```bash
-streamlit run scripts/ae-console.py
+ae-console
 ```
 
 ## Architecture
@@ -122,7 +124,7 @@ streamlit run scripts/ae-console.py
 Reads a JSON array from stdin, validates, embeds, and upserts into LanceDB.
 
 ```
-python scripts/ae-save.py [--db-path PATH] [--graph-path PATH]
+ae-save [--db-path PATH] [--graph-path PATH]
 ```
 
 ### ae-recall
@@ -130,8 +132,8 @@ python scripts/ae-save.py [--db-path PATH] [--graph-path PATH]
 Searches memories by semantic similarity with optional graph boost.
 
 ```
-python scripts/ae-recall.py --query "..." [--format json|markdown] [--limit N] [--category CAT]
-                            [--graph-path PATH] [--no-graph]
+ae-recall --query "..." [--format json|markdown] [--limit N] [--category CAT]
+          [--graph-path PATH] [--no-graph]
 ```
 
 ### ae-miner
@@ -139,9 +141,9 @@ python scripts/ae-recall.py --query "..." [--format json|markdown] [--limit N] [
 Parses native session logs, extracts knowledge via LLM, saves to memory DB.
 
 ```
-python scripts/ae-miner.py --llm claude-code|codex|gemini
-                           [--source claude-code|codex|text] [--log-dir DIR]
-                           [--db-path PATH] [--cursor-path PATH] [--dry-run]
+ae-miner --llm claude-code|codex|gemini
+         [--source claude-code|codex|text] [--log-dir DIR]
+         [--db-path PATH] [--cursor-path PATH] [--dry-run]
 ```
 
 ### ae-consolidate
@@ -149,10 +151,10 @@ python scripts/ae-miner.py --llm claude-code|codex|gemini
 Detects similar memory clusters via cosine similarity and uses LLM to decide MERGE, KEEP, or SKILL (promote to reusable procedure).
 
 ```
-python scripts/ae-consolidate.py --llm claude-code|codex|gemini
-                                  [--model MODEL] [--threshold 0.90]
-                                  [--db-path PATH] [--graph-path PATH]
-                                  [--skills-dir DIR] [--dry-run]
+ae-consolidate --llm claude-code|codex|gemini
+               [--model MODEL] [--threshold 0.90]
+               [--db-path PATH] [--graph-path PATH]
+               [--skills-dir DIR] [--dry-run]
 ```
 
 - `--dry-run` without `--llm`: preview detected clusters (no LLM required)
@@ -165,13 +167,13 @@ python scripts/ae-consolidate.py --llm claude-code|codex|gemini
 Bulk maintenance for long-term memories: category normalization, entity/relation re-extraction, graph DB rebuild, and orphan entity cleanup.
 
 ```
-python scripts/ae-groom.py --llm claude-code|codex|gemini
-                            [--model MODEL] [--batch-size N]
-                            [--db-path PATH] [--graph-path PATH]
-                            [--normalize-categories-only]
-                            [--re-extract-only]
-                            [--rebuild-graph-only]
-                            [--dry-run]
+ae-groom --llm claude-code|codex|gemini
+         [--model MODEL] [--batch-size N]
+         [--db-path PATH] [--graph-path PATH]
+         [--normalize-categories-only]
+         [--re-extract-only]
+         [--rebuild-graph-only]
+         [--dry-run]
 ```
 
 - `--dry-run`: preview what each phase would do without modifying the DB
@@ -193,7 +195,7 @@ python scripts/ae-groom.py --llm claude-code|codex|gemini
 Streamlit web dashboard for memory and graph management.
 
 ```
-streamlit run scripts/ae-console.py
+ae-console
 ```
 
 ## Integration with AI Agents
@@ -214,7 +216,7 @@ Before starting work, check if past experience is relevant:
 - Deciding on a workflow or approach (what worked well before)
 
 Run:
-  python /path/to/agentic-engram/scripts/ae-recall.py --query "<describe the task or issue>" --format markdown --limit 3
+  ae-recall --query "<describe the task or issue>" --format markdown --limit 3
 Consult past experience before starting from scratch.
 ```
 
@@ -225,10 +227,10 @@ The agent will then autonomously invoke `ae-recall` not only when it hits errors
 `ae-miner` reads native session logs (JSONL) from AI coding agents and uses CLI tools as the LLM backend for knowledge extraction. No additional recording setup or API keys needed.
 
 ```bash
-python scripts/ae-miner.py --llm claude-code   # reads ~/.claude/projects/, uses `claude -p`
-python scripts/ae-miner.py --source codex --llm claude-code  # reads ~/.codex/sessions/, uses `claude -p`
-python scripts/ae-miner.py --llm codex          # uses `codex exec`
-python scripts/ae-miner.py --llm gemini         # uses `gemini`
+ae-miner --llm claude-code   # reads ~/.claude/projects/, uses `claude -p`
+ae-miner --source codex --llm claude-code  # reads ~/.codex/sessions/, uses `claude -p`
+ae-miner --llm codex          # uses `codex exec`
+ae-miner --llm gemini         # uses `gemini`
 ```
 
 #### Custom LLM via Python

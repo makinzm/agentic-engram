@@ -55,35 +55,37 @@ flowchart LR
 pip install -e ".[dev]"
 ```
 
+これにより全CLIコマンド（`ae-recall`, `ae-save`, `ae-miner`, `ae-consolidate`, `ae-groom`, `ae-console`）がvirtualenvに登録される。
+
 ### メモリの手動保存
 
 ```bash
 echo '[{"action":"INSERT","payload":{"event":"CORS error with Ollama","context":"Direct fetch from Next.js client","core_lessons":"Use Route Handler as proxy","category":"architecture","tags":["Next.js","CORS"],"related_files":["app/api/chat/route.ts"],"session_id":"session_001"}}]' \
-  | python scripts/ae-save.py
+  | ae-save
 ```
 
 ### メモリの検索
 
 ```bash
-python scripts/ae-recall.py --query "CORS error" --format markdown
-python scripts/ae-recall.py --query "CORS error" --format json --limit 3
+ae-recall --query "CORS error" --format markdown
+ae-recall --query "CORS error" --format json --limit 3
 ```
 
 ### マイナーの実行
 
 ```bash
-python scripts/ae-miner.py --dry-run                # 対象ログファイルをプレビュー（LLM不要）
-python scripts/ae-miner.py --llm claude-code         # Claude Code JSONLログをマイニング（デフォルト）
-python scripts/ae-miner.py --source codex --llm claude-code  # Codex CLI JONLログをマイニング
-python scripts/ae-miner.py --llm codex               # Codex CLIをLLMバックエンドとして使用
-python scripts/ae-miner.py --llm gemini              # Gemini CLIをLLMバックエンドとして使用
-python scripts/ae-miner.py --source text --llm claude-code  # レガシー：生テキストログをマイニング
+ae-miner --dry-run                # 対象ログファイルをプレビュー（LLM不要）
+ae-miner --llm claude-code         # Claude Code JSONLログをマイニング（デフォルト）
+ae-miner --source codex --llm claude-code  # Codex CLI JONLログをマイニング
+ae-miner --llm codex               # Codex CLIをLLMバックエンドとして使用
+ae-miner --llm gemini              # Gemini CLIをLLMバックエンドとして使用
+ae-miner --source text --llm claude-code  # レガシー：生テキストログをマイニング
 ```
 
 ### コンソールの起動
 
 ```bash
-streamlit run scripts/ae-console.py
+ae-console
 ```
 
 ## アーキテクチャ
@@ -122,7 +124,7 @@ streamlit run scripts/ae-console.py
 stdinからJSON配列を読み取り、バリデーション・埋め込み・LanceDBへのupsertを行う。
 
 ```
-python scripts/ae-save.py [--db-path PATH] [--graph-path PATH]
+ae-save [--db-path PATH] [--graph-path PATH]
 ```
 
 ### ae-recall
@@ -130,8 +132,8 @@ python scripts/ae-save.py [--db-path PATH] [--graph-path PATH]
 セマンティック類似度+グラフブーストでメモリを検索する。
 
 ```
-python scripts/ae-recall.py --query "..." [--format json|markdown] [--limit N] [--category CAT]
-                            [--graph-path PATH] [--no-graph]
+ae-recall --query "..." [--format json|markdown] [--limit N] [--category CAT]
+          [--graph-path PATH] [--no-graph]
 ```
 
 ### ae-miner
@@ -139,9 +141,9 @@ python scripts/ae-recall.py --query "..." [--format json|markdown] [--limit N] [
 ネイティブセッションログをパースし、LLMでナレッジを抽出し、メモリDBに保存する。
 
 ```
-python scripts/ae-miner.py --llm claude-code|codex|gemini
-                           [--source claude-code|codex|text] [--log-dir DIR]
-                           [--db-path PATH] [--cursor-path PATH] [--dry-run]
+ae-miner --llm claude-code|codex|gemini
+         [--source claude-code|codex|text] [--log-dir DIR]
+         [--db-path PATH] [--cursor-path PATH] [--dry-run]
 ```
 
 ### ae-consolidate
@@ -149,10 +151,10 @@ python scripts/ae-miner.py --llm claude-code|codex|gemini
 コサイン類似度で類似メモリクラスタを検出し、LLMでMERGE（統合）、KEEP（維持）、SKILL（手順書に昇格）を判断する。
 
 ```
-python scripts/ae-consolidate.py --llm claude-code|codex|gemini
-                                  [--model MODEL] [--threshold 0.90]
-                                  [--db-path PATH] [--graph-path PATH]
-                                  [--skills-dir DIR] [--dry-run]
+ae-consolidate --llm claude-code|codex|gemini
+               [--model MODEL] [--threshold 0.90]
+               [--db-path PATH] [--graph-path PATH]
+               [--skills-dir DIR] [--dry-run]
 ```
 
 - `--dry-run`のみ（`--llm`なし）：検出されたクラスタをプレビュー（LLM不要）
@@ -165,13 +167,13 @@ python scripts/ae-consolidate.py --llm claude-code|codex|gemini
 長期記憶の一括メンテナンス：カテゴリ正規化、エンティティ/リレーション再抽出、グラフDB再構築、孤立エンティティ掃除。
 
 ```
-python scripts/ae-groom.py --llm claude-code|codex|gemini
-                            [--model MODEL] [--batch-size N]
-                            [--db-path PATH] [--graph-path PATH]
-                            [--normalize-categories-only]
-                            [--re-extract-only]
-                            [--rebuild-graph-only]
-                            [--dry-run]
+ae-groom --llm claude-code|codex|gemini
+         [--model MODEL] [--batch-size N]
+         [--db-path PATH] [--graph-path PATH]
+         [--normalize-categories-only]
+         [--re-extract-only]
+         [--rebuild-graph-only]
+         [--dry-run]
 ```
 
 - `--dry-run`：各フェーズの対象件数を表示するがDBは変更しない
@@ -193,7 +195,7 @@ python scripts/ae-groom.py --llm claude-code|codex|gemini
 メモリとグラフ管理用のStreamlit Webダッシュボード。
 
 ```
-streamlit run scripts/ae-console.py
+ae-console
 ```
 
 ## AIエージェントとの連携
@@ -214,7 +216,7 @@ streamlit run scripts/ae-console.py
 - 作業手順やワークフローに迷った時（効率的だった進め方）
 
 以下を実行：
-  python /path/to/agentic-engram/scripts/ae-recall.py --query "<作業内容や問題の説明>" --format markdown --limit 3
+  ae-recall --query "<作業内容や問題の説明>" --format markdown --limit 3
 ゼロから考えるのではなく、まず過去の経験を参照すること。
 ```
 
@@ -225,10 +227,10 @@ streamlit run scripts/ae-console.py
 `ae-miner`はAIコーディングエージェントのネイティブセッションログ（JSONL）を読み取り、CLIツールをLLMバックエンドとして使用する。追加の記録設定やAPIキーは不要。
 
 ```bash
-python scripts/ae-miner.py --llm claude-code   # ~/.claude/projects/を読み取り、`claude -p`を使用
-python scripts/ae-miner.py --source codex --llm claude-code  # ~/.codex/sessions/を読み取り、`claude -p`を使用
-python scripts/ae-miner.py --llm codex          # `codex exec`を使用
-python scripts/ae-miner.py --llm gemini         # `gemini`を使用
+ae-miner --llm claude-code   # ~/.claude/projects/を読み取り、`claude -p`を使用
+ae-miner --source codex --llm claude-code  # ~/.codex/sessions/を読み取り、`claude -p`を使用
+ae-miner --llm codex          # `codex exec`を使用
+ae-miner --llm gemini         # `gemini`を使用
 ```
 
 #### PythonでカスタムLLMを渡す
