@@ -6,7 +6,7 @@ import streamlit as st
 
 from engram.console import (
     get_all_memories, get_stats, delete_memory,
-    get_graph_stats, get_entity_graph,
+    get_graph_stats, get_entity_graph, get_all_entities,
 )
 from engram.recall import search_memories, format_output
 
@@ -111,8 +111,8 @@ else:
 st.header("Entity Explorer")
 
 if gstats.get("available"):
-    top_entities = gstats.get("top_entities", [])
-    entity_names = [e["name"] for e in top_entities] if top_entities else []
+    all_entities = get_all_entities(graph_path)
+    entity_names = [e["name"] for e in all_entities] if all_entities else []
 
     if entity_names:
         selected_entity = st.selectbox("Select entity to explore", entity_names)

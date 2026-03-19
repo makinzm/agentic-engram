@@ -101,6 +101,29 @@ def get_graph_stats(graph_path: str) -> Dict[str, Any]:
         return {"available": False}
 
 
+def get_all_entities(graph_path: str) -> List[Dict[str, Any]]:
+    """Return all entities sorted by mention_count descending."""
+    try:
+        from engram.graph import is_graph_available, get_graph_db, get_connection
+
+        if not is_graph_available(graph_path):
+            return []
+
+        get_graph_db(graph_path)
+        conn = get_connection(graph_path)
+        result = conn.execute(
+            "MATCH (e:Entity) RETURN e.name, e.mention_count "
+            "ORDER BY e.mention_count DESC"
+        )
+        entities = []
+        while result.has_next():
+            row = result.get_next()
+            entities.append({"name": row[0], "mention_count": row[1]})
+        return entities
+    except Exception:
+        return []
+
+
 def get_entity_graph(entity_name: str, graph_path: str) -> Dict[str, Any]:
     """Return neighborhood graph data for a given entity (for visualization).
 
