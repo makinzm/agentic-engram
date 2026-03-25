@@ -2,6 +2,16 @@
 
 ## Development Setup
 
+### Using uv
+
+```bash
+git clone https://github.com/sert-xx/agentic-engram.git
+cd agentic-engram
+uv sync --extra dev
+```
+
+### Using pip
+
 ```bash
 git clone https://github.com/sert-xx/agentic-engram.git
 cd agentic-engram
@@ -13,6 +23,11 @@ pip install -e ".[dev]"
 ## Running Tests
 
 ```bash
+# Using uv
+uv run pytest -v
+uv run pytest tests/test_save.py
+
+# Using pip (with virtualenv activated)
 pytest -v                 # run all tests
 pytest tests/test_save.py # run a specific module
 ```

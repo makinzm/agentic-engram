@@ -47,9 +47,31 @@ flowchart LR
 ### 要件
 
 - Python 3.9+
+- [uv](https://docs.astral.sh/uv/) または pip
 - セッションログを保存するAIコーディングエージェント（例：Claude Code）
 
 ### インストール
+
+#### uv を使う場合
+
+```bash
+uv sync --extra dev
+```
+
+`.venv` が自動作成され、全依存パッケージとCLIコマンドが登録される。`uv run` 経由で実行：
+
+```bash
+uv run ae-recall --query "CORS error" --format markdown
+```
+
+または virtualenv を activate して直接実行：
+
+```bash
+source .venv/bin/activate
+ae-recall --query "CORS error" --format markdown
+```
+
+#### pip を使う場合
 
 ```bash
 pip install -e ".[dev]"
@@ -270,7 +292,11 @@ crontab -e
 ```
 
 ```cron
-*/30 * * * * cd /path/to/agentic-engram && .venv/bin/python scripts/ae-miner.py --llm claude-code >> ~/.engram/miner.log 2>&1
+# uv を使う場合
+*/30 * * * * cd /path/to/agentic-engram && uv run ae-miner --llm claude-code >> ~/.engram/miner.log 2>&1
+
+# pip を使う場合（virtualenv）
+*/30 * * * * cd /path/to/agentic-engram && .venv/bin/ae-miner --llm claude-code >> ~/.engram/miner.log 2>&1
 ```
 
 ### launchd（macOS推奨）
@@ -287,8 +313,7 @@ crontab -e
   <string>com.engram.miner</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/path/to/agentic-engram/.venv/bin/python</string>
-    <string>/path/to/agentic-engram/scripts/ae-miner.py</string>
+    <string>/path/to/agentic-engram/.venv/bin/ae-miner</string>
     <string>--llm</string>
     <string>claude-code</string>
   </array>
@@ -315,6 +340,11 @@ Linuxサーバーでは、`~/.config/systemd/user/`配下にsystemdのservice + 
 ## 開発
 
 ```bash
+# uv を使う場合
+uv sync --extra dev
+uv run pytest -v
+
+# pip を使う場合
 pip install -e ".[dev]"
 pytest -v
 ```
