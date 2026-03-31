@@ -137,6 +137,9 @@ ae-console
 | `embedder` | `src/engram/embedder.py` | Sentence-transformers singleton wrapper |
 | `groom` | `src/engram/groom.py` | Bulk maintenance: category normalization, entity re-extraction, graph rebuild |
 | `prompts_groom` | `src/engram/prompts_groom.py` | LLM prompt construction for entity re-extraction |
+| `harvest` | `src/engram/harvest.py` | Web article fetching, LLM tip extraction, save pipeline |
+| `prompts_harvest` | `src/engram/prompts_harvest.py` | LLM prompt construction for Kaggle/ML tip extraction |
+| `llm` | `src/engram/llm.py` | Shared LLM backend factory and output parser |
 | `console` | `src/engram/console.py` | Streamlit UI logic (stats, browse, delete, graph) |
 
 ## CLI Reference
@@ -211,6 +214,61 @@ ae-groom --llm claude-code|codex|gemini
 2. **Entity/relation re-extraction** -- sends all memories to an LLM to re-extract entities and relations with consistent quality
 3. **Graph DB rebuild** -- deletes and rebuilds the Kuzu graph DB from VectorDB as the single source of truth
 4. **Orphan entity cleanup** -- removes entities with `mention_count ≤ 0`
+
+### ae-harvest
+
+Harvest Kaggle/ML tips from web articles into memory DB. Supports both manual URL specification and automatic URL discovery from multiple sources.
+
+```
+ae-harvest [--source rss|awesome|search|kaggle|all]
+           [--urls URL1 URL2 ...] [--url-file FILE]
+           --llm claude-code|codex|gemini
+           [--model MODEL] [--limit N] [--dry-run]
+           [--db-path PATH] [--graph-path PATH] [--cursor-path PATH]
+```
+
+**Auto-discovery sources (`--source`):**
+
+| Source | Description | Auth Required |
+|--------|-------------|--------------|
+| `rss` | ML blog RSS feeds (Machine Learning Mastery, TDS, fast.ai, etc.) | No |
+| `awesome` | GitHub awesome lists (kaggle-solutions, awesome-kaggle) | No |
+| `search` | DuckDuckGo search for "kaggle tips", "ML best practices", etc. | No |
+| `kaggle` | Kaggle API — popular notebooks/kernels by vote count | Yes (`~/.kaggle/kaggle.json`) |
+| `all` | All auth-free sources (rss + awesome + search) | No |
+
+**Other options:**
+
+- `--urls`: Manually specify URLs to harvest
+- `--url-file`: File containing URLs (one per line, `#` comments supported)
+- `--dry-run`: Show new URLs without processing
+- `--limit`: Maximum number of URLs to process per run
+- Cursor-based state tracking prevents re-processing the same URL
+
+**Examples:**
+
+```bash
+# Auto-discover and harvest from all sources (no URL specification needed!)
+ae-harvest --source all --llm claude-code --limit 10
+
+# RSS feeds only
+ae-harvest --source rss --llm claude-code
+
+# GitHub awesome lists + manual URLs
+ae-harvest --source awesome --urls https://example.com/my-tips --llm claude-code
+
+# Preview what URLs would be discovered
+ae-harvest --source all --dry-run
+
+# Harvest from a URL list file
+ae-harvest --url-file urls.txt --llm claude-code
+```
+
+For better article extraction quality, install the optional `trafilatura` dependency:
+
+```bash
+uv sync --extra harvest
+```
 
 ### ae-console
 
