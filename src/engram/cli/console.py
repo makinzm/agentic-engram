@@ -18,7 +18,7 @@ def main():
         )
         script_path = os.path.normpath(script_path)
 
-    sys.exit(subprocess.call(["streamlit", "run", script_path] + sys.argv[1:]))
+    sys.exit(subprocess.call(["streamlit", "run", "--server.address", "localhost", script_path] + sys.argv[1:]))
 
 
 if __name__ == "__main__":
