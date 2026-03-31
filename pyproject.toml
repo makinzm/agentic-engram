@@ -30,6 +30,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.4.2"]
+harvest = ["trafilatura>=1.6"]
 
 [project.urls]
 Repository = "https://github.com/sert-xx/agentic-engram"
@@ -41,6 +42,7 @@ ae-miner = "engram.cli.miner:main"
 ae-consolidate = "engram.cli.consolidate:main"
 ae-groom = "engram.cli.groom:main"
 ae-console = "engram.cli.console:main"
+ae-harvest = "engram.cli.harvest:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
